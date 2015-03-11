@@ -9,28 +9,28 @@ using namespace std;
 
 //Declarations :
 //matrix initialization
-void init(int *A, int n, int d);
+void init(float *A, int n, int d);
 
 //matrix comparation
-bool compare(int *A, int *B, int n);
+bool compare(float *A, float *B, int n);
 
 //print matrix
-void printmat(int *A, int rows, int cols);
+void printmat(float *A, int rows, int cols);
 
 //sequential matrix multiplication
-void matMult(int *h_A, int *h_B, int *h_C, int common, int Arows, int Bcols);
+void matMult(float *h_A, float *h_B, float *h_C, int common, int Arows, int Bcols);
 
 //pre kernel matrix multiplication
-void prematMultP(int *A, int *B, int* C, int common, int Arows, int Bcols);
+void prematMultP(float *A, float *B, float *C, int common, int Arows, int Bcols);
 
 //pre kernel matrix tiling multiplication
-void prematMultPTiled(int *A, int *B, int *C, int common, int Arows, int Bcols);
+void prematMultPTiled(float *A, float *B, float *C, int common, int Arows, int Bcols);
 
 //Parallel kernel
-__global__ void matMultP (int *d_A, int *d_B, int *d_C, int common, int Arows, int Bcols);
+__global__ void matMultP (float *d_A, float *d_B, float *d_C, int common, int Arows, int Bcols);
 
 //Parallel kernel (tiling)
-__global__ void matMultPTiled(int *d_A, int *d_B, int *d_C, int common, int Arows, int Bcols);
+__global__ void matMultPTiled(float *d_A, float *d_B, float *d_C, int common, int Arows, int Bcols);
 
 //End declarations
 
@@ -42,14 +42,14 @@ int main() {
     int Arows,common,Bcols;
     cin >> Arows >> common >> Bcols;
 
-    int sizeA = Arows * common * sizeof(int);
-    int sizeB = common * Bcols * sizeof(int);
-    int sizeR = Arows * Bcols * sizeof(int);
-    int *A = (int *)malloc(sizeA);
-    int *B = (int *)malloc(sizeB);
-    int *C = (int *)malloc(sizeR);
-    int *D = (int *)malloc(sizeR);
-    int *E = (int *)malloc(sizeR);
+    int sizeA = Arows * common * sizeof(float);
+    int sizeB = common * Bcols * sizeof(float);
+    int sizeR = Arows * Bcols * sizeof(float);
+    float *A = (float *)malloc(sizeA);
+    float *B = (float *)malloc(sizeB);
+    float *C = (float *)malloc(sizeR);
+    float *D = (float *)malloc(sizeR);
+    float *E = (float *)malloc(sizeR);
 
     init(A, Arows * common, 1);
     init(B, common * Bcols, 2);
@@ -111,22 +111,22 @@ int main() {
 //Functions
 
 //matrix initialization
-void init(int *A,int n, int d) {
+void init(float *A,int n, int d) {
   for(int i = 0; i < n; i++)
     A[i] = d;
 }
 
 //matrix comparation
-bool compare(int *A, int *B, int n) {
+bool compare(float *A, int *B, int n) {
   for(int i = 0; i < n; i++)
-    if(A[i] != B[i])
+    if(abs(A[i] - B[i]) > 0.01)
       return false;
 
   return true;
 }
 
 //print matrix
-void printmat(int *A, int rows, int cols) {
+void printmat(float *A, int rows, int cols) {
   for(int i = 0; i < rows; i++) {
     for(int j = 0; j < cols; j++) {
       cout << A[i * rows + j] << " ";
@@ -137,8 +137,8 @@ void printmat(int *A, int rows, int cols) {
 }
 
 //matrix multiplication
-void matMult(int *h_A, int *h_B, int *h_C, int common, int Arows, int Bcols) {
-  int sum;
+void matMult(float *h_A, float *h_B, float *h_C, int common, int Arows, int Bcols) {
+  float sum;
   for(int i = 0; i < Arows; i++)
     for(int j = 0; j < Bcols; j++) {
       sum = 0;
@@ -150,11 +150,11 @@ void matMult(int *h_A, int *h_B, int *h_C, int common, int Arows, int Bcols) {
 }
 
 //pre kernel matrix multiplication
-void prematMultP(int *A, int *B, int* C, int common, int Arows, int Bcols) {
-  int sizeA = Arows * common * sizeof(int);
-  int sizeB = common * Bcols * sizeof(int);
-  int sizeR = Arows * Bcols * sizeof(int);
-  int *d_A, *d_B, *d_C;
+void prematMultP(float *A, float *B, float *C, int common, int Arows, int Bcols) {
+  int sizeA = Arows * common * sizeof(float);
+  int sizeB = common * Bcols * sizeof(float);
+  int sizeR = Arows * Bcols * sizeof(float);
+  float *d_A, *d_B, *d_C;
 
   //Allocate memory for device
   cudaMalloc(&d_A, sizeA);
@@ -181,11 +181,11 @@ void prematMultP(int *A, int *B, int* C, int common, int Arows, int Bcols) {
 }
 
 //pre kernel matrix tiling multiplication
-void prematMultPTiled(int *A, int *B, int *C, int common, int Arows, int Bcols) {
-  int sizeA = Arows * common * sizeof(int);
-  int sizeB = common * Bcols * sizeof(int);
-  int sizeR = Arows * Bcols * sizeof(int);
-  int *d_A, *d_B, *d_C;
+void prematMultPTiled(float *A, float *B, float *C, int common, int Arows, int Bcols) {
+  int sizeA = Arows * common * sizeof(float);
+  int sizeB = common * Bcols * sizeof(float);
+  int sizeR = Arows * Bcols * sizeof(float);
+  float *d_A, *d_B, *d_C;
 
   //Allocate memory for device
   cudaMalloc(&d_A, sizeA);
@@ -212,12 +212,12 @@ void prematMultPTiled(int *A, int *B, int *C, int common, int Arows, int Bcols) 
 }
 
 //Parallel kernel
-__global__ void matMultP (int *d_A, int *d_B, int *d_C, int common, int Arows, int Bcols) {
+__global__ void matMultP (float *d_A, float *d_B, float *d_C, int common, int Arows, int Bcols) {
   int i = threadIdx.y + blockDim.y * blockIdx.y;
   int j = threadIdx.x + blockDim.x * blockIdx.x;
 
   if(i < Arows and j < Bcols) {
-    int sum = 0;
+    float sum = 0;
 
     for(int k = 0; k < common; ++k)
       sum += d_A[common * i + k] * d_B[Bcols * k + j];
@@ -227,7 +227,7 @@ __global__ void matMultP (int *d_A, int *d_B, int *d_C, int common, int Arows, i
 }
 
 //Parallel kernel (tiling)
-__global__ void matMultPTiled(int *d_A, int *d_B, int *d_C, int common, int Arows, int Bcols) {
+__global__ void matMultPTiled(float *d_A, float *d_B, float *d_C, int common, int Arows, int Bcols) {
   __shared__ int Mds[TILE_WIDTH][TILE_WIDTH];
   __shared__ int Nds[TILE_WIDTH][TILE_WIDTH];
 
@@ -238,7 +238,7 @@ __global__ void matMultPTiled(int *d_A, int *d_B, int *d_C, int common, int Arow
 
   int row = by * TILE_WIDTH + ty;
   int col = bx * TILE_WIDTH + tx;
-  int Pvalue = 0;
+  float Pvalue = 0;
 
   for(int m = 0; m < (common + TILE_WIDTH - 1) / TILE_WIDTH; ++m) {
 
