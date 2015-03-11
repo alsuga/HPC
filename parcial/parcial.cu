@@ -1,19 +1,94 @@
 #include<cuda.h>
 #include <bits/stdc++.h>
 
-#define TILE_WIDTH 32
+#define BLOCK_SIZE 32
+#define TILE_WIDTH BLOCK_SIZE
 
 using namespace std;
 
 //matrix initialization
+void init(int *A,int n, int d);
+
+//matrix comparation
+bool compare(int *A, int *B, int n);
+
+//print matrix
+void printmat(int *A, int rows, int cols);
+
+//matrix multiplication
+void matMult(int *h_A, int *h_B, int *h_C, int common, int Arows, int Bcols);
+
+void prematMultP(int *A, int *B, int* C, int common, int Arows, int Bcols);
+
+void prematMultPTiled(int *A, int *B, int *C, int common, int Arows, int Bcols);
+
+//Parallel kernel
+__global__ void matMultP (int *d_A, int *d_B, int *d_C, int common, int Arows, int Bcols);
+
+//Parallel kernel (tiling)
+__global__ void matMultPTiled(int *d_A, int *d_B, int *d_C, int common, int Arows, int Bcols);
+
+int main(){
+  int Arows,common,Bcols; cin>>Arows>>common>>Bcols;
+  //cout<<n<<endl;
+  int sizeA = Arows*common*sizeof(int);
+  int sizeB = common*Bcols*sizeof(int);
+  int sizeR = Arows*Bcols*sizeof(int);
+  int *A = (int *)malloc(sizeA);
+  int *B = (int *)malloc(sizeB);
+  int *C = (int *)malloc(sizeR);
+  int *D = (int *)malloc(sizeR);
+  int *E = (int *)malloc(sizeR);
+  init(A,Arows*common,1);
+  init(B,common*Bcols,2);
+  init(C,Arows*Bcols,0);
+  init(D,Arows*Bcols,0);
+  init(E,Arows*Bcols,0);
+  double a, b, c;
+
+  //Secuencial
+  clock_t t = clock();
+  matMult(A,B,C,common,Arows,Bcols);
+  t = clock() - t;
+  a = ((float)t)/CLOCKS_PER_SEC;
+  cout<<"Tiempo secuencial: "<<a<<endl;
+
+  //paralelo
+  t = clock();
+  prematMultP(A,B,D,common,Arows,Bcols);
+  t = clock() - t;
+  b = ((float)t)/CLOCKS_PER_SEC;
+  cout<<"Tiempo paralelo: "<<b<<endl;
+  cout<<"Acelero "<<(a/b)<<" X"<<endl;
+  t = clock();
+  prematMultPTiled(A,B,E,common,Arows,Bcols);
+  t = clock() - t;
+  c = ((float)t)/CLOCKS_PER_SEC;
+  cout<<"Tiempo paralelo con tilings: "<<c<<endl;
+  cout<<"Acelero "<<(a/c)<<" X"<<endl;
+  //printmat(C,Arows,Bcols);
+  //printmat(D,Arows,Bcols);
+  //printmat(E,Arows,Bcols);
+
+  if(compare(C,D,Arows*Bcols) and compare(D,E,Arows*Bcols)) cout<<"Work :)"<<endl;
+  else cout<<"No work :("<<endl;
+
+  free(A);
+  free(B);
+  free(C);
+  free(D);
+  return 0;
+}
+
+//matrix initialization
 void init(int *A,int n, int d){
-  for(int i = 0; i < n*n; i++)
+  for(int i = 0; i < n; i++)
     A[i] = d;
 }
 
 //matrix comparation
-bool compare(int *A, int *B, int rows, int cols){
-  for(int i = 0; i < rows*cols; i++)
+bool compare(int *A, int *B, int n){
+  for(int i = 0; i < n; i++)
     if(A[i] != B[i])
       return false;
   return true;
@@ -43,21 +118,75 @@ void matMult(int *h_A, int *h_B, int *h_C, int common, int Arows, int Bcols){
     }
 }
 
+void prematMultP(int *A, int *B, int* C, int common, int Arows, int Bcols){
+  int sizeA = Arows*common*sizeof(int);
+  int sizeB = common*Bcols*sizeof(int);
+  int sizeR = Arows*Bcols*sizeof(int);
+  int *d_A, *d_B, *d_C;
+  //Allocate memory for device
+  cudaMalloc(&d_A, sizeA);
+  cudaMalloc(&d_B, sizeB);
+  cudaMalloc(&d_C, sizeR);
+  //Copy Data from host to device
+  cudaMemcpy(d_A, A, sizeA, cudaMemcpyHostToDevice);
+  cudaMemcpy(d_B, B, sizeB, cudaMemcpyHostToDevice);
+  //Blocks and Grids
+
+  dim3 dimBlock(BLOCK_SIZE,BLOCK_SIZE);
+  dim3 dimGrid(ceil(Bcols/(float)BLOCK_SIZE),ceil(Arows/(float)BLOCK_SIZE));
+
+  //Launch Kernel
+  matMultP<<<dimGrid, dimBlock>>> (d_A, d_B, d_C, common, Arows, Bcols);
+  cudaDeviceSynchronize();
+  //Copy from device, free device memory
+  cudaMemcpy (C, d_C, sizeR, cudaMemcpyDeviceToHost);
+  cudaFree(d_A);
+  cudaFree(d_B);
+  cudaFree(d_C);
+}
+
+
+void prematMultPTiled(int *A, int *B, int *C, int common, int Arows, int Bcols){
+  int sizeA = Arows*common*sizeof(int);
+  int sizeB = common*Bcols*sizeof(int);
+  int sizeR = Arows*Bcols*sizeof(int);
+  int *d_A, *d_B, *d_C;
+  //Allocate memory for device
+  cudaMalloc(&d_A, sizeA);
+  cudaMalloc(&d_B, sizeB);
+  cudaMalloc(&d_C, sizeR);
+  //Copy Data from host to device
+  cudaMemcpy(d_A, A, sizeA, cudaMemcpyHostToDevice);
+  cudaMemcpy(d_B, B, sizeB, cudaMemcpyHostToDevice);
+  //Blocks and Grids
+
+  dim3 dimBlock(BLOCK_SIZE,BLOCK_SIZE);
+  dim3 dimGrid(ceil(Bcols/(float)BLOCK_SIZE),ceil(Arows/(float)BLOCK_SIZE));
+
+  //Launch Kernel
+  matMultPTiled<<<dimGrid, dimBlock>>> (d_A, d_B, d_C, common, Arows, Bcols);
+  cudaDeviceSynchronize();
+  //Copy from device, free device memory
+  cudaMemcpy (C, d_C, sizeR, cudaMemcpyDeviceToHost);
+  cudaFree(d_A);
+  cudaFree(d_B);
+  cudaFree(d_C);
+}
 
 //Parallel kernel
-__global__ void matMultPP (int *A, int *B, int *C, int n){
+__global__ void matMultP (int *d_A, int *d_B, int *d_C, int common, int Arows, int Bcols){
   int i = threadIdx.y + blockDim.y * blockIdx.y;
   int j = threadIdx.x + blockDim.x * blockIdx.x;
-  if(i < n and j < n){
+  if(i < Arows and j < Bcols){
     int sum = 0;
-    for(int k = 0; k < n; ++k)
-      sum += A[n*i + k] * B[n*k + j];
-    C[n*i + j] = sum;
+    for(int k = 0; k < common; ++k)
+      sum += d_A[common*i + k] * d_B[Bcols*k + j];
+    d_C[Bcols*i + j] = sum;
   }
 }
 
 //Parallel kernel (tiling)
-__global__ void matrixMulKernelTiled(int *d_M, int *d_N, int *d_P, int width){
+__global__ void matMultPTiled(int *d_A, int *d_B, int *d_C, int common, int Arows, int Bcols){
   __shared__ int Mds[TILE_WIDTH][TILE_WIDTH];
   __shared__ int Nds[TILE_WIDTH][TILE_WIDTH];
   int bx = blockIdx.x;
@@ -67,80 +196,23 @@ __global__ void matrixMulKernelTiled(int *d_M, int *d_N, int *d_P, int width){
   int row = by * TILE_WIDTH + ty;
   int col = bx * TILE_WIDTH + tx;
   float Pvalue = 0;
-  for(int m = 0; m < width / TILE_WIDTH; ++m){
-    Mds[ty][tx] = d_M[row*width + m*TILE_WIDTH + tx];
-    Nds[ty][tx] = d_N[(m*TILE_WIDTH + ty) * width + col];
+  for(int m = 0; m < ( common + TILE_WIDTH - 1) / TILE_WIDTH; ++m){
+    if(m*TILE_WIDTH + tx < common and row < Arows)
+      Mds[ty][tx] = d_A[row*common + m*TILE_WIDTH + tx];
+    else
+      Mds[ty][tx] = 0;
+    if(m*TILE_WIDTH + ty < common and col < Bcols)
+      Nds[ty][tx] = d_B[(m*TILE_WIDTH + ty) * Bcols + col];
+    else
+      Nds[ty][tx] = 0;
     __syncthreads();
     for(int k = 0; k < TILE_WIDTH; ++k){
       Pvalue += Mds[ty][k] * Nds[k][tx];
     }
     __syncthreads();
   }
-  d_P[row*width+col] = Pvalue;
+  if(row < Arows and col < Bcols)
+    d_C[row*Bcols+col] = Pvalue;
 }
 
-int main(){
-  int n; cin>>n;
-  cout<<n<<endl;
-  int size = n*n*sizeof(int);
-  int *A = (int *)malloc(size);
-  int *B = (int *)malloc(size);
-  int *C = (int *)malloc(size);
-  int *D = (int *)malloc(size);
-  int *d_A, *d_B, *d_C;
-  init(A,n,1);
-  init(B,n,2);
-  init(C,n,0);
-  init(D,n,0);
-  double a, b;
-  clock_t t = clock();
 
-  //Secuencial
-  matMult(A,B,C,n);
-  t = clock() - t;
-  a = ((float)t)/CLOCKS_PER_SEC;
-  cout<<a<<endl;
-  int block_size = 32;
-
-  //paralelo
-  t = clock();
-
-  //Allocate memory for device
-  cudaMalloc(&d_A, size);
-  cudaMalloc(&d_B, size);
-  cudaMalloc(&d_C, size);
-  //Copy Data from host to device
-  cudaMemcpy(d_A, A, size, cudaMemcpyHostToDevice);
-  cudaMemcpy(d_B, B, size, cudaMemcpyHostToDevice);
-  //Blocks and Grids
-
-  dim3 dimBlock(block_size,block_size);
-  dim3 dimGrid(ceil(n/(float)block_size),ceil(n/(float)block_size));
-
-  //Launch Kernel
-  matMultPP<<<dimGrid, dimBlock>>> (d_A, d_B, d_C, n);
-  cudaDeviceSynchronize();
-  //Copy from device, free device memory
-  cudaMemcpy (D, d_C, size, cudaMemcpyDeviceToHost);
-
-
-  //matMultP(A,B,D,size);
-  t = clock() - t;
-  b = ((float)t)/CLOCKS_PER_SEC;
-  cout<<b<<endl;
-  cout<<(a/b)<<endl;
-  //printmat(C,n);
-  //printmat(D,n);
-
-  //if(compare(C,D,n)) cout<<"Work :)"<<endl;
-  //else cout<<"No work :("<<endl;
-
-  free(A);
-  free(B);
-  free(C);
-  free(D);
-  cudaFree(d_A);
-  cudaFree(d_B);
-  cudaFree(d_C);
-  return 0;
-}
