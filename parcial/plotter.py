@@ -5,11 +5,13 @@ from numpy import *
 def m_load(fname) :
     return fromfile(fname, sep='\n')
 
-x   = m_load('x.in')
-y1  = m_load('yPar.in')
-y2  = m_load('ySec.in')
+x   = m_load('x4.in')
+y1  = m_load('yPar4.in')
+y2  = m_load('ySec4.in')
+y3  = m_load('yTil4.in')
 plt.plot(x, y1, 'b')
 plt.plot(x, y2, 'r')
+plt.plot(x, y3, 'g')
 
 plt.hold()
 plt.savefig("comparativa.png");
