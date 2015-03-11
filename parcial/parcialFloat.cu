@@ -9,7 +9,7 @@ using namespace std;
 
 //Declarations :
 //matrix initialization
-void init(float *A, int n, int d);
+void init(float *A, int n, float d);
 
 //matrix comparation
 bool compare(float *A, float *B, int n);
@@ -51,8 +51,8 @@ int main() {
     float *D = (float *)malloc(sizeR);
     float *E = (float *)malloc(sizeR);
 
-    init(A, Arows * common, 1);
-    init(B, common * Bcols, 2);
+    init(A, Arows * common, 1.5);
+    init(B, common * Bcols, 1.75);
     init(C, Arows * Bcols, 0);
     init(D, Arows * Bcols, 0);
     init(E, Arows * Bcols, 0);
@@ -93,10 +93,10 @@ int main() {
     //printmat(E,Arows,Bcols);
 
     //checking
-    //if(compare(C, D, Arows * Bcols) and compare(D, E, Arows * Bcols))
-      //cout << "Ok :)" << endl;
-    //else
-      //cout << "No ok :(" << endl;
+    if(compare(C, D, Arows * Bcols) and compare(D, E, Arows * Bcols))
+      cout << "Ok :)" << endl;
+    else
+      cout << "No ok :(" << endl;
 
     //Free
     free(A);
@@ -111,13 +111,13 @@ int main() {
 //Functions
 
 //matrix initialization
-void init(float *A,int n, int d) {
+void init(float *A,int n, float d) {
   for(int i = 0; i < n; i++)
     A[i] = d;
 }
 
 //matrix comparation
-bool compare(float *A, int *B, int n) {
+bool compare(float *A, float *B, int n) {
   for(int i = 0; i < n; i++)
     if(abs(A[i] - B[i]) > 0.01)
       return false;
@@ -228,8 +228,8 @@ __global__ void matMultP (float *d_A, float *d_B, float *d_C, int common, int Ar
 
 //Parallel kernel (tiling)
 __global__ void matMultPTiled(float *d_A, float *d_B, float *d_C, int common, int Arows, int Bcols) {
-  __shared__ int Mds[TILE_WIDTH][TILE_WIDTH];
-  __shared__ int Nds[TILE_WIDTH][TILE_WIDTH];
+  __shared__ float Mds[TILE_WIDTH][TILE_WIDTH];
+  __shared__ float Nds[TILE_WIDTH][TILE_WIDTH];
 
   int bx = blockIdx.x;
   int by = blockIdx.y;
