@@ -3,6 +3,7 @@ using namespace std;
 int main(){
   int n;
   double tmp;
+  string no;
   ofstream x ("x32F.in");
   ofstream ySec ("ySec32F.in");
   ofstream yPar ("yPar32F.in");
