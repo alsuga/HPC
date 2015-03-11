@@ -3,12 +3,12 @@ using namespace std;
 int main(){
   int n;
   double tmp;
-  ofstream x ("x32.in");
-  ofstream ySec ("ySec32.in");
-  ofstream yPar ("yPar32.in");
-  ofstream xAc ("xAc32.in");
-  ofstream yTil ("yTil32.in");
-  ofstream xTAc ("xTAc32.in");
+  ofstream x ("x32F.in");
+  ofstream ySec ("ySec32F.in");
+  ofstream yPar ("yPar32F.in");
+  ofstream xAc ("xAc32F.in");
+  ofstream yTil ("yTil32F.in");
+  ofstream xTAc ("xTAc32F.in");
   while(cin >> n) {
     x << n << endl;
     cin >> tmp;
