@@ -12,34 +12,39 @@ void init(int *A,int n, int d){
 //vector summatory
 void vecSum(int *h_A, int *h_B, int n){
   for(int i = 0; i < n; i++)
-      h_B += h_A[i];
+      *h_B += h_A[i];
 }
 
 
 //Parallel kernel
-__global__ void vecSumP (int *A, int *B, int n){
-  int i = threadIdx.x + blockDim.x * blockIdx.x;
-  if(i < n and i != 0)
-    A[0] += A[i];
+__global__ void vecSumP (int *A, int n){
+  __shared__ float tmp[32];
+  size_t t = threadIdx.x;
+  tmp[t] = A[t + blockIdx.x * blockDim.x];
+  for(size_t st = blockDim.x; st > 1; st >>= 2){
+    __syncthreads();
+    if(t < st)
+      tmp[t] += tmp[t + st];
+  }
 }
 
 int main(){
   int n; cin>>n;
   int size = n * sizeof(int);
   int *h_A = (int *)malloc(size);
-  int *h_B = (int *)malloc(sizeof int);
-  int *h_C = (int *)malloc(sizeof int);
+  int *h_B = (int *)malloc(sizeof(int));
+  int *h_C = (int *)malloc(size);
   int *d_A, *d_B;
-  init(A, n, 1);
-  &B = 0;
-  double a, b;
+  init(h_A, n, 1);
+  *h_B = 0;
+  //double a, b;
   clock_t t = clock();
 
   //Secuencial
-  vecSum(A, B, n);
+  vecSum(h_A, h_B, n);
   t = clock() - t;
-  a = ((float)t)/CLOCKS_PER_SEC;
-  cout<<a<<endl;
+  //a = ((float)t)/CLOCKS_PER_SEC;
+  cout<<*h_B<<endl;
   int block_size = 32;
 
   //paralelo
@@ -47,34 +52,37 @@ int main(){
 
   //Allocate memory for device
   cudaMalloc(&d_A, size);
-  cudaMalloc(&d_B, sizeof int);
+  cudaMalloc(&d_B, sizeof(int));
 
   //Copy Data from host to device
-  cudaMemcpy(d_A, A, size, cudaMemcpyHostToDevice);
+  cudaMemcpy(d_A, h_A, size, cudaMemcpyHostToDevice);
   //Blocks and Grids
 
   //Launch Kernel
-  matMultPP<<< (n + block_size - 1)/block_size, block_size>>> (d_A, d_B, n);
+  vecSumP<<< (n + block_size - 1)/block_size, block_size>>> (d_A, n);
   cudaDeviceSynchronize();
 
   //Copy from device, free device memory
-  cudaMemcpy (h_C, d_B, sizeof int, cudaMemcpyDeviceToHost);
+  cudaMemcpy (h_C, d_A, size, cudaMemcpyDeviceToHost);
 
 
   //matMultP(A,B,D,size);
   t = clock() - t;
-  b = ((float)t)/CLOCKS_PER_SEC;
-  cout<<b<<endl;
-  cout<<(a / b)<<endl;
+  cout<<"parallel"<<endl;
+  //b = ((float)t)/CLOCKS_PER_SEC;
+  for(int i = 0; i < n; i++)
+    cout<<h_C[i]<<endl;
+  //cout<<(a / b)<<endl;
   //printmat(C,n);
   //printmat(D,n);
 
   //if(compare(C,D,n)) cout<<"Work :)"<<endl;
   //else cout<<"No work :("<<endl;
 
-  free(A);
-  free(B);
+  free(h_A);
+  free(h_B);
+  free(h_C);
   cudaFree(d_A);
-  cudaFree(d_B);
+  //cudaFree(d_B);
   return 0;
 }
