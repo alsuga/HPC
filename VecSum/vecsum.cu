@@ -53,18 +53,17 @@ int main(){
   int *d_A, *d_B;
   init(h_A, n, 1);
   *h_B = 0;
-  //double a, b;
+  double a, b;
   clock_t t = clock();
 
   //Secuencial ***************
   vecSum(h_A, h_B, n);
   t = clock() - t;
-  //a = ((float)t)/CLOCKS_PER_SEC;
-  cout<<"secuential: "<<h_B[0]<<endl;
+  a = ((float)t)/CLOCKS_PER_SEC;
+  cout<<"secuential: "<<h_B[0]<<" : "<<a<<endl;
 
   //paralelo*****************
   t = clock();
-  cout<<"size: "<<size<<endl;
   error = cudaMalloc(&d_A, size);
   if(error != cudaSuccess){
     printf("Error reservando memoria para d_A");
@@ -115,9 +114,9 @@ int main(){
 
   //matMultP(A,B,D,size);
   t = clock() - t;
-  cout<<"parallel: "<<h_C[0]<<endl;
-  //b = ((float)t)/CLOCKS_PER_SEC;
-  //cout<<(a / b)<<endl;
+  b = ((float)t)/CLOCKS_PER_SEC;
+  cout<<"parallel: "<<h_C[0]<<" : "<<b<<endl;
+  cout<<(a / b)<<endl;
   //printmat(C,n);
   //printmat(D,n);
 
