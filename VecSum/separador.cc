@@ -4,10 +4,10 @@ int main(){
   int n;
   double tmp;
   string no;
-  ofstream x ("x32F.in");
-  ofstream ySec ("ySec32F.in");
-  ofstream yPar ("yPar32F.in");
-  ofstream yAc ("xAc32F.in");
+  ofstream x ("x.in");
+  ofstream ySec ("ySec.in");
+  ofstream yPar ("yPar.in");
+  ofstream yAc ("yAc.in");
   while(cin >> n) {
     x << n << endl;
     cin >> tmp;
