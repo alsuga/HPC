@@ -43,6 +43,7 @@ __global__ void vecSumP (int *A, int *out, int n){
 
 int main(){
   int n; cin>>n;
+  cout<<n<<endl;
   cudaError_t error = cudaSuccess;
   int size = n * sizeof(int);
   int *h_A = (int *)malloc(size);
@@ -60,7 +61,7 @@ int main(){
   vecSum(h_A, h_B, n);
   t = clock() - t;
   a = ((float)t)/CLOCKS_PER_SEC;
-  cout<<"secuential: "<<h_B[0]<<" : "<<a<<endl;
+  cout<<a<<endl;
 
   //paralelo*****************
   t = clock();
@@ -115,7 +116,7 @@ int main(){
   //matMultP(A,B,D,size);
   t = clock() - t;
   b = ((float)t)/CLOCKS_PER_SEC;
-  cout<<"parallel: "<<h_C[0]<<" : "<<b<<endl;
+  cout<<b<<endl;
   cout<<(a / b)<<endl;
   //printmat(C,n);
   //printmat(D,n);
