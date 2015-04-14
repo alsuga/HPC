@@ -17,7 +17,7 @@ de 10^4 hasta 10^8.
 Gráfica de tiempo vs datos
 --------------------------
 
-![](https://github.com/alsuga/HPC/blob/master/Convolucion1d/imgAndData/tiempo.png "Tiempo vs Datos")
+![](https://github.com/alsuga/HPC/blob/master/Convolucion1d/imgAndData/tiempos.png "Tiempo vs Datos")
 
 
 Gráfica de aceleración vs datos
