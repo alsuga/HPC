@@ -17,6 +17,16 @@ int size(int n, int m){
   return (n + m -1) / m;
 }
 
+void comp(int *a, int *b, int n) {
+  for(int i = 0; i < n; i++) {
+    if(a[i] != b[i]){
+      cout<<":("<<endl;
+      return;
+    }
+  }
+  cout<<":)"<<endl;
+}
+
 void print(int *vec, int n) {
   for(int i = 0; i < n; i++)
     cout << vec[i] << " ";
@@ -49,7 +59,7 @@ __global__ void convolParB(int *d_vec, int *d_kernel, int *d_out, int n) {
     d_out[i] = sum;
 }
 
-__global__ void convolParB(int *d_vec, int *d_out, int n) {
+__global__ void convolParC(int *d_vec, int *d_out, int n) {
   int i  = blockIdx.x * blockDim.x + threadIdx.x;
 
   int tmp = i - (KERNEL_SIZE/2), sum = 0;
@@ -97,29 +107,83 @@ int main(){__
   h_vec = new int[n];
   h_out = new int[n];
   for(int i = 0; i < KERNEL_SIZE; i++)
-    cin >> h_kernel[i];
+    h_kernel[i] = 1;
   for(int i = 0; i < n; i++)
-    cin >> h_vec[i];
+     h_vec[i] = (i % 500);
 
   // <--------- Secuencial ----------->
+  double a,b;
+  clock_t t = clock();
   convolSec(h_vec, h_kernel, h_out, n);
-  print(h_out, n);
-
+  t = clock() - t;
+  a = ((float)t)/CLOCKS_PER_SEC;
+  cout<<"Secuencial: "<<a<<endl;
   // <--------- Paralelo --------->
   int *d_vec, *d_out, *d_kernel;
+  //convolParB<<< size(n, BLOCK_SIZE), BLOCK_SIZE >>> (d_vec, d_kernel, d_out, n);
   int sz = sizeof(int) * n;
-  //gpu_error(cudaMalloc(&d_kernel, sizeof(int) * KERNEL_SIZE));
-  //gpu_error(cudaMemcpy(d_kernel, h_kernel, sizeof(int)*KERNEL_SIZE, cudaMemcpyHostToDevice));
+  t = clock();
+  gpu_error(cudaMalloc(&d_kernel, sizeof(int) * KERNEL_SIZE));
+  gpu_error(cudaMemcpy(d_kernel, h_kernel, sizeof(int)*KERNEL_SIZE, cudaMemcpyHostToDevice));
+  gpu_error(cudaMalloc(&d_vec, sz));
+  gpu_error(cudaMemcpy(d_vec, h_vec, sz, cudaMemcpyHostToDevice));
+  gpu_error(cudaMalloc(&d_out, sz ));
+
+  convolParB<<< size(n, BLOCK_SIZE), BLOCK_SIZE >>> (d_vec, d_kernel, d_out, n);
+  gpu_error(cudaGetLastError());
+  cudaDeviceSynchronize();
+  gpu_error(cudaMemcpy(out_d, d_out, sz, cudaMemcpyDeviceToHost));
+  t = clock() - t;
+  b = ((float)t)/CLOCKS_PER_SEC;
+  cout<<"Paralelo naive: "<< b <<endl;
+  cout<<"Aceleracion naive: "<< a/b <<endl;
+
+  cudaFree(d_kernel);
+  cudaFree(d_vec);
+  cudaFree(d_out);
+
+// <--------- Paralelo Cache--------->
+  t = clock();
   gpu_error(cudaMemcpyToSymbol(d_cachekernel, h_kernel, sizeof(int) * KERNEL_SIZE));
   gpu_error(cudaMalloc(&d_vec, sz));
   gpu_error(cudaMemcpy(d_vec, h_vec, sz, cudaMemcpyHostToDevice));
   gpu_error(cudaMalloc(&d_out, sz ));
 
   //convolParB<<< size(n, BLOCK_SIZE), BLOCK_SIZE >>> (d_vec, d_kernel, d_out, n);
+  convolParC<<< size(n, BLOCK_SIZE), BLOCK_SIZE >>> (d_vec, d_out, n);
+  gpu_error(cudaGetLastError());
+  cudaDeviceSynchronize();
+  gpu_error(cudaMemcpy(out_d, d_out, sz, cudaMemcpyDeviceToHost));
+  t = clock() - t;
+  b = ((float)t)/CLOCKS_PER_SEC;
+  cout<<"Paralelo cache: "<< b <<endl;
+  cout<<"Aceleracion cache: "<< a/b <<endl;
+
+  cudaFree(d_vec);
+  cudaFree(d_out);
+
+// <--------- Paralelo Cache tiled--------->
+  t = clock();
+  gpu_error(cudaMemcpyToSymbol(d_cachekernel, h_kernel, sizeof(int) * KERNEL_SIZE));
+  gpu_error(cudaMalloc(&d_vec, sz));
+  gpu_error(cudaMemcpy(d_vec, h_vec, sz, cudaMemcpyHostToDevice));
+  gpu_error(cudaMalloc(&d_out, sz ));
+
   convolParT<<< size(n, BLOCK_SIZE), BLOCK_SIZE >>> (d_vec, d_out, n);
   gpu_error(cudaGetLastError());
   cudaDeviceSynchronize();
   gpu_error(cudaMemcpy(out_d, d_out, sz, cudaMemcpyDeviceToHost));
-  print(out_d, n);
+  t = clock() - t;
+  b = ((float)t)/CLOCKS_PER_SEC;
+  cout<<"Paralelo tiled: "<< b <<endl;
+  cout<<"Aceleracion tiled: "<< a/b <<endl;
+
+  cudaFree(d_vec);
+  cudaFree(d_out);
+
+  delete[] h_kernel;
+  delete[] h_vec;
+  delete[] h_out;
+  delete[] out_d;
   return 0;
 }
