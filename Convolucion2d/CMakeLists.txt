@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 2.4.10)
+#find_package(CUDA QUIET REQUIRED)
+find_package( OpenCV REQUIRED )
+#set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS}; -O3 -gencode arch=compute_30,code=sm_30)
+add_executable(convolution2d convolucion2d.cc)
+target_link_libraries(convolution2d ${OpenCV_LIBS})
