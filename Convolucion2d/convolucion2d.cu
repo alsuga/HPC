@@ -1,4 +1,5 @@
 #include <cv.h>
+#include <cuda.h>
 #include <highgui.h>
 #include <bits/stdc++.h>
 
@@ -29,8 +30,17 @@ uchar sol(int i, int j) {
   j = (j < 0)? 0 : j;
   j = (j > 255)? 255 : j;
 
-  int out = round(sqrt(i*i + j*j));
+  int out = sqrt((double)(i*i + j*j));
   return (out > 255)? 255 : out;
+}
+
+__global__
+void D_grisesN(uchar *rgbImage, uchar *grayImage, int width, int height) {
+  size_t i = blockIdx.y*blockDim.y+threadIdx.y;
+  size_t j = blockIdx.x*blockDim.x+threadIdx.x;
+  if((i < height) && (j < width))
+  grayImage[i*width + j] = rgbImage[(i*width + j)*3 + RED] * 0.299 + rgbImage[(i*width+ j)*3 + GREEN] * 0.587\
+                         + rgbImage[(i*width + j)*3 + BLUE] * 0.114;
 }
 
 __host__
@@ -40,21 +50,13 @@ void D_grises(uchar *h_rgbImage, uchar *h_grayImage, int width, int height) {
   gpu_error(cudaMalloc(&d_rgbImage, size * 3 ));
   gpu_error(cudaMemcpy(d_rgbImage, h_rgbImage, size * 3, cudaMemcpyHostToDevice));
   gpu_error(cudaMalloc(&d_grayImage, size));
-  dim3 dimBlock(blockSize,blockSize,1);
-  dim3 dimGrid(ceil(width/float(blockSize)),ceil(height/float(blockSize)),1);
+  dim3 dimBlock(BLOCK_SIZE,BLOCK_SIZE,1);
+  dim3 dimGrid(ceil(width/float(BLOCK_SIZE)),ceil(height/float(BLOCK_SIZE)),1);
   D_grisesN<<<dimGrid,dimBlock>>>(d_rgbImage, d_grayImage, width, height);
   cudaDeviceSynchronize();
   gpu_error(cudaMemcpy(h_grayImage, d_grayImage, size, cudaMemcpyDeviceToHost) );
 }
 
-__global__
-void D_grisesN(uchar *rgbImage, uchar *grayImage, int width, int height) {
-  size_t i = blockIdx.y*blockDim.y+threadIdx.y;
-  size_t j = blockIdx.x*blockDim.x+threadIdx.x;
-  if((row < height) && (col < width))
-  grayImage[i*width + j] = rgbImage[(i*width + j)*3 + RED] * 0.299 + rgbImage[(i*width+ j)*3 + GREEN] * 0.587\
-                         + rgbImage[(i*width + j)*3 + BLUE] * 0.114;
-}
 
 
 __host__
