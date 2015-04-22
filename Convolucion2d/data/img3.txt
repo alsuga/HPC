@@ -1,0 +1,12 @@
+Secuencial:
+0.0196954
+Paralelo
+0.0193508
+Aceleracion
+1.01781
+Secuencial:
+0.0195472
+Paralelo
+0.0184535
+Aceleracion
+1.05927
