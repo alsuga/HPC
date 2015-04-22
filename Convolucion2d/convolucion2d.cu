@@ -119,36 +119,40 @@ void D_sobelC(uchar *grayImage, uchar *sobelImage, int width, int height) {
 }
 
 __global__
-void D_sobelT(uchar *grayImage, int *mask, uchar *sobelImage, int width, int height) {
-  int tmp, s_row, s_col, pv1, pv2;
+void D_sobelT(uchar *grayImage, uchar *sobelImage, int width, int height) {
+  int tmp, pv1, pv2;
   __shared__ int tile[TILE_WIDTH][TILE_WIDTH];
   int n = MASK_WIDTH/2;
   int row = blockIdx.y*blockDim.y+threadIdx.y - n;
   int col = blockIdx.x*blockDim.x+threadIdx.x - n;
-  int trow = threadIdx.x;
-  int tcol = threadIdx.y;
+  int trow = threadIdx.y;
+  int tcol = threadIdx.x;
   //size_t ti = threadIdx.x *
-  for(int i = 0; i < MASK_WIDTH; i++) {
-    for(int j = 0; j < MASK_WIDTH; j++) {
-      if(row + i < 0 or col + j < 0 or row + i >= height or col + i >= width)
-        tile[i + trow][j + tcol] = 0;
-      else
-        tile[i + trow][j + tcol] = grayImage[(row + i)*width + (col + j)];
+  if(trow == 0 or trow == BLOCK_SIZE-1 or tcol == 0 or tcol == BLOCK_SIZE-1) {
+    for(int i = 0; i < MASK_WIDTH; i++) {
+      for(int j = 0; j < MASK_WIDTH and (i != n and j != n); j++) {
+        if(row + i < 0 or col + j < 0 or row + i >= height or col + i >= width)
+          tile[i + trow][j + tcol] = 0;
+        else
+          tile[i + trow][j + tcol] = grayImage[(row + i)*width + (col + j)];
+      }
     }
   }
   if(row < height and col < width) {
     row += n;
     col += n;
+    tile[trow][tcol] = grayImage[row* width + col];
+    __syncthreads();
     tmp = 0;
     pv1 = pv2 = 0;
-    s_row = row - (MASK_WIDTH/2);
-    s_col = col - (MASK_WIDTH/2);
+    //s_row = trow - (MASK_WIDTH/2);
+    //s_col = tcol - (MASK_WIDTH/2);
     for(int mask_i = 0; mask_i < MASK_WIDTH; mask_i++) {
       for(int mask_j = 0; mask_j < MASK_WIDTH; mask_j++) {
-        if(s_row + mask_i >= 0 and s_row + mask_i < height and s_col + mask_j >= 0 and s_col + mask_j < width) {
-          tmp =  tile[s_row + mask_i][s_col + mask_j];
-          pv1 += tmp * mask[mask_i * MASK_WIDTH + mask_j];
-          pv2 += tmp * mask[mask_j * MASK_WIDTH + mask_i];
+        if(trow + mask_i >= 0 and trow + mask_i < TILE_WIDTH and tcol + mask_j >= 0 and tcol + mask_j < TILE_WIDTH) {
+          tmp =  tile[trow + mask_i][tcol + mask_j];
+          pv1 += tmp * d_maskc[mask_i * MASK_WIDTH + mask_j];
+          pv2 += tmp * d_maskc[mask_j * MASK_WIDTH + mask_i];
         }
       }
     }
@@ -164,7 +168,7 @@ void D_sobel(uchar *grayImage, int mask[], uchar* sobelImage, int width, int hei
   gpu_error( cudaMalloc(&d_grayImage, size)  );
   gpu_error( cudaMemcpy(d_grayImage, grayImage, size, cudaMemcpyHostToDevice));
   gpu_error( cudaMalloc(&d_sobelImage, size) );
-  gpu_error( cudaMemcpyToSymbol(d_maskc, mask, MASK_WIDTH * MASK_WIDTH * sizeof(int)) ); //cache
+  gpu_error( cudaMemcpyToSymbol(d_maskc, mask, MASK_WIDTH * MASK_WIDTH * sizeof(int)) ); //cache y tile
 
   //gpu_error( cudaMalloc(&d_mask, MASK_WIDTH * MASK_WIDTH * sizeof(int)) ); //global
   //gpu_error( cudaMemcpy(d_mask, mask, MASK_WIDTH * MASK_WIDTH * sizeof(int), cudaMemcpyHostToDevice)); //global
@@ -172,7 +176,8 @@ void D_sobel(uchar *grayImage, int mask[], uchar* sobelImage, int width, int hei
   dim3 dimBlock(BLOCK_SIZE,BLOCK_SIZE,1);
   dim3 dimGrid(ceil(width/float(BLOCK_SIZE)),ceil(height/float(BLOCK_SIZE)),1);
   //D_sobelN<<<dimGrid,dimBlock>>>(d_grayImage, d_mask, d_sobelImage, width, height); //global
-  D_sobelC<<<dimGrid,dimBlock>>>(d_grayImage, d_sobelImage, width, height);  //cache
+  //D_sobelC<<<dimGrid,dimBlock>>>(d_grayImage, d_sobelImage, width, height);  //cache
+  D_sobelT<<<dimGrid,dimBlock>>>(d_grayImage, d_sobelImage, width, height);  //cache
   cudaDeviceSynchronize();
   gpu_error(cudaMemcpy(sobelImage, d_sobelImage, size, cudaMemcpyDeviceToHost) );
   cudaFree(d_grayImage);
@@ -208,7 +213,7 @@ int main( ) {
   Mat image;
   double promSec = 0.0, promPar = 0.0;
   uchar *dataimage, *grayimage, *sobelimage;
-  image = imread( "img1.jpg",1);
+  image = imread( "img5.jpg",1);
   int Mask[] = {-1, 0, 1, -2 , 0, 2, -1 ,0 ,1};
   dataimage = image.data;
 
