@@ -4,13 +4,7 @@ Convolución de imagenes
 Implementación
 --------------
 
-Fueron implementadas 2 versiones de paso a grises,
-secuencial y paralela, ademas se implementaron
-4 versiones de la convolución en 2d, secuencial,
-paralela con memoria global, paralela con caching y
-paralela con tiling, pero esta ultima tiene un error
-donde se pierden ciertos pixeles, por lo tanto se
-omitieron los datos de esta.
+Fueron implementadas 2 versiones de paso a grises, secuencial y paralela aplicando el filtro en X y en Y, ademas se implementaron 4 versiones de la convolución en 2d, secuencial, paralela con memoria global, paralela con caching y paralela con tiling, pero esta ultima tiene un error donde se pierden ciertos pixeles, por lo tanto se omitieron los datos de esta.
 
 Tablas y gráficas
 -----------------
